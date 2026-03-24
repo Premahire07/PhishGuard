@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard — ML System Explained</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1117;
+    --card: #111820;
+    --border: #1e2d3d;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --accent3: #ffe066;
+    --green: #00ff9d;
+    --text: #cdd9e5;
+    --muted: #546e7a;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 4rem 2rem;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,229,255,0.12) 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+    animation: pulse 4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.8; }
+    50% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 0.3rem 1rem;
+    border-radius: 2px;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .hero-sub {
+    max-width: 600px;
+    color: var(--muted);
+    font-size: 1.1rem;
+    margin-top: 1.2rem;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .stats-row {
+    display: flex; gap: 2rem; flex-wrap: wrap;
+    justify-content: center; margin-top: 3rem;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  .stat {
+    text-align: center;
+    background: rgba(0,229,255,0.05);
+    border: 1px solid var(--border);
+    padding: 1.2rem 2rem;
+    border-radius: 4px;
+  }
+
+  .stat-num {
+    font-size: 2rem; font-weight: 800;
+    color: var(--accent); display: block;
+    font-family: var(--mono);
+  }
+
+  .stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+
+  .scroll-hint {
+    position: absolute; bottom: 2rem;
+    font-family: var(--mono); font-size: 0.7rem;
+    color: var(--muted); letter-spacing: 0.1em;
+    animation: bounce 2s infinite;
+  }
+
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(20px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* ── SECTIONS ── */
+  section { position: relative; z-index: 1; }
+
+  .section-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .section-tag {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+
+  .section-desc {
+    color: var(--muted);
+    max-width: 620px;
+    margin-bottom: 3rem;
+    font-size: 1rem;
+  }
+
+  /* ── STEP CARDS ── */
+  .steps {
+    display: flex; flex-direction: column; gap: 1.5px;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 2rem;
+    padding: 2rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    transition: border-color 0.3s, background 0.3s;
+    cursor: pointer;
+    position: relative; overflow: hidden;
+  }
+
+  .step::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,229,255,0.03) 0%, transparent 60%);
+    opacity: 0; transition: opacity 0.3s;
+  }
+
+  .step:hover::before { opacity: 1; }
+  .step:hover { border-left-color: var(--green); background: #131d26; }
+
+  .step-num {
+    font-family: var(--mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--border);
+    line-height: 1;
+    align-self: start;
+    padding-top: 0.3rem;
+    transition: color 0.3s;
+  }
+
+  .step:hover .step-num { color: var(--accent); }
+
+  .step-content h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #fff;
+  }
+
+  .step-content p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+
+  .step-content .code-block {
+    margin-top: 1rem;
+    background: #06090c;
+    border: 1px solid var(--border);
+    padding: 1rem 1.2rem;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+
+  .code-block .kw   { color: #c792ea; }
+  .code-block .str  { color: #c3e88d; }
+  .code-block .num  { color: var(--accent3); }
+  .code-block .fn   { color: #82aaff; }
+  .code-block .cm   { color: #546e7a; }
+
+  /* ── FEATURES GRID ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  .feat-card {
+    background: var(--card);
+    padding: 1.4rem;
+    position: relative;
+    transition: background 0.2s;
+  }
+
+  .feat-card:hover { background: #131d26; }
+
+  .feat-num {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.1em;
+  }
+
+  .feat-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.3rem;
+    font-family: var(--mono);
+  }
+
+  .feat-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+
+  .feat-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-family: var(--mono);
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  .feat-badge.new { background: rgba(0,255,157,0.1); color: var(--green); border: 1px solid rgba(0,255,157,0.3); }
+  .feat-badge.core { background: rgba(0,229,255,0.08); color: var(--accent); border: 1px solid rgba(0,229,255,0.2); }
+
+  .feat-bar-wrap { margin-top: 0.7rem; }
+  .feat-bar-bg { background: var(--border); border-radius: 2px; height: 3px; }
+  .feat-bar { height: 3px; border-radius: 2px; background: var(--accent); transition: width 1s ease; }
+
+  /* ── PIPELINE ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 2rem 0;
+  }
+
+  .pipe-node {
+    flex: 1; min-width: 140px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 1.2rem 1rem;
+    text-align: center;
+    position: relative;
+  }
+
+  .pipe-node .pipe-icon {
+    font-size: 1.8rem;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .pipe-node h4 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.3rem;
+  }
+
+  .pipe-node p {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .pipe-arrow {
+    color: var(--accent);
+    font-size: 1.2rem;
+    padding: 0 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .pipe-node.highlight {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.05);
+  }
+
+  /* ── INTERACTIVE DEMO ── */
+  .demo-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin-top: 2rem;
+  }
+
+  .demo-title {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 1.2rem;
+  }
+
+  .url-examples {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .url-btn {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .url-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .url-btn.phish { border-color: rgba(255,61,113,0.4); color: var(--accent2); }
+  .url-btn.phish:hover { background: rgba(255,61,113,0.1); }
+  .url-btn.safe { border-color: rgba(0,255,157,0.3); color: var(--green); }
+  .url-btn.safe:hover { background: rgba(0,255,157,0.05); }
+
+  .url-input-row {
+    display: flex; gap: 1rem; align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .url-input {
+    flex: 1;
+    background: #06090c;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding: 0.7rem 1rem;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-input:focus { border-color: var(--accent); }
+
+  .analyze-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.7rem 1.5rem;
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+    transition: opacity 0.2s;
+  }
+
+  .analyze-btn:hover { opacity: 0.85; }
+
+  .feature-bars { display: none; }
+  .feature-bars.visible { display: block; }
+
+  .fb-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 60px;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .fb-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .fb-track {
+    background: var(--border);
+    border-radius: 2px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  .fb-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  .fb-val {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: #fff;
+  }
+
+  .verdict {
+    display: none;
+    margin-top: 1.5rem;
+    padding: 1.2rem 1.5rem;
+    border-radius: 4px;
+    border-left: 4px solid;
+  }
+
+  .verdict.phish {
+    background: rgba(255,61,113,0.08);
+    border-color: var(--accent2);
+    display: block;
+  }
+
+  .verdict.safe {
+    background: rgba(0,255,157,0.05);
+    border-color: var(--green);
+    display: block;
+  }
+
+  .verdict-label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.3rem;
+  }
+
+  .verdict.phish .verdict-label { color: var(--accent2); }
+  .verdict.safe  .verdict-label { color: var(--green); }
+
+  .verdict-text { font-size: 0.85rem; color: var(--text); }
+
+  /* ── MODEL CARD ── */
+  .model-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  .model-cell {
+    background: var(--card);
+    padding: 1.5rem;
+  }
+
+  .model-cell h4 {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.7rem;
+  }
+
+  .model-cell .val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  .model-cell .sub-val {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+    font-family: var(--mono);
+  }
+
+  /* ── TREE VIZ ── */
+  .tree-container {
+    background: #06090c;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    margin-top: 1.5rem;
+    overflow-x: auto;
+  }
+
+  .tree { display: flex; flex-direction: column; align-items: center; }
+
+  .tree-node {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 0.6rem 1rem;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    text-align: center;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .tree-node.root   { border-color: var(--accent); color: var(--accent); }
+  .tree-node.leaf-p { border-color: var(--accent2); color: var(--accent2); background: rgba(255,61,113,0.08); }
+  .tree-node.leaf-s { border-color: var(--green);   color: var(--green);  background: rgba(0,255,157,0.05); }
+
+  .tree-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 0.8rem;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .tree-branch { display: flex; flex-direction: column; align-items: center; }
+
+  .tree-edge {
+    width: 1px; height: 20px;
+    background: var(--border);
+  }
+
+  .tree-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  /* ── BUG FIXES TIMELINE ── */
+  .timeline { position: relative; padding-left: 2rem; }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2), var(--green));
+  }
+
+  .tl-item {
+    position: relative;
+    padding: 0 0 2.5rem 2rem;
+  }
+
+  .tl-dot {
+    position: absolute;
+    left: -5px; top: 4px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+  }
+
+  .tl-item:nth-child(2) .tl-dot { background: #888; }
+  .tl-item:nth-child(3) .tl-dot { background: var(--accent2); }
+  .tl-item:nth-child(4) .tl-dot { background: var(--accent3); }
+  .tl-item:nth-child(5) .tl-dot { background: var(--green); }
+
+  .tl-version {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.3rem;
+  }
+
+  .tl-title { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+  .tl-desc  { font-size: 0.85rem; color: var(--muted); }
+
+  .tl-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    margin-top: 0.4rem;
+  }
+
+  .tl-tag.fix   { background: rgba(0,255,157,0.1); color: var(--green); }
+  .tl-tag.miss  { background: rgba(255,61,113,0.1); color: var(--accent2); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    text-align: center;
+    padding: 2rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    position: relative; z-index: 1;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 0;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    .step { grid-template-columns: 50px 1fr; gap: 1rem; }
+    .model-grid { grid-template-columns: 1fr; }
+    .url-input-row { flex-direction: column; }
+    .fb-row { grid-template-columns: 140px 1fr 50px; }
+    .pipeline { flex-direction: column; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="badge">// MACHINE LEARNING EXPLAINER</div>
+  <h1>How <span>PhishGuard</span><br>Detects Phishing</h1>
+  <p class="hero-sub">A complete walkthrough of the ML pipeline — from raw URL to phishing verdict — trained on 200,000+ real-world examples.</p>
+  <div class="stats-row">
+    <div class="stat">
+      <span class="stat-num">208K+</span>
+      <div class="stat-label">Training URLs</div>
+    </div>
+    <div class="stat">
+      <span class="stat-num">25</span>
+      <div class="stat-label">Features Extracted</div>
+    </div>
+    <div class="stat">
+      <span class="stat-num">99.9%</span>
+      <div class="stat-label">Model Accuracy</div>
+    </div>
+    <div class="stat">
+      <span class="stat-num">300</span>
+      <div class="stat-label">Decision Trees</div>
+    </div>
+  </div>
+  <div class="scroll-hint">↓ SCROLL TO EXPLORE</div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════ PIPELINE ══════════ -->
+<section>
+  <div class="section-inner">
+    <div class="section-tag">// STEP 0 — OVERVIEW</div>
+    <h2 class="section-title">The Full ML Pipeline</h2>
+    <p class="section-desc">Every URL passes through this 5-stage pipeline in milliseconds. Here's the complete flow from browser to verdict.</p>
+
+    <div class="pipeline">
+      <div class="pipe-node highlight">
+        <span class="pipe-icon">🌐</span>
+        <h4>URL Input</h4>
+        <p>Raw URL from browser tab</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <span class="pipe-icon">🛡️</span>
+        <h4>Whitelist Check</h4>
+        <p>500+ trusted domains</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <span class="pipe-icon">⚙️</span>
+        <h4>Feature Extraction</h4>
+        <p>25 numerical features</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <span class="pipe-icon">🌲</span>
+        <h4>Random Forest</h4>
+        <p>300 trees vote</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node highlight">
+        <span class="pipe-icon">🚨</span>
+        <h4>Verdict</h4>
+        <p>SAFE or PHISHING</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════ STEPS ══════════ -->
+<section>
+  <div class="section-inner">
+    <div class="section-tag">// STEPS 1–5 — DEEP DIVE</div>
+    <h2 class="section-title">Each Step Explained</h2>
+    <p class="section-desc">Click any step to explore. Follow the code and logic that runs inside the Flask API every time a page loads.</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <h3>Data Collection — 12 Real-World Sources</h3>
+          <p>The model was trained on URLs from PhishTank, OpenPhish, Phishing.Database (mitchellkrogza), ESDAUNG, JPCERT/CC, UCI Phishing, PhiUSIIL, UNB ISCX-URL-2016, Mendeley, Alexa Top 1M, Cisco Umbrella, and Majestic Million. Each source covers a different attack category — from crypto drainers to delivery scams to DGA malware domains.</p>
+          <div class="code-block">
+<span class="cm"># Dataset composition</span>
+total_rows   = <span class="num">208,549</span>
+phishing_urls = <span class="num">104,992</span>  <span class="cm"># 12 attack strategies</span>
+legit_urls    = <span class="num">103,557</span>  <span class="cm"># Alexa/Cisco/Majestic</span>
+balance_ratio = <span class="num">0.986</span>    <span class="cm"># near-perfect balance ✓</span>
+
+<span class="cm"># Phishing strategies modelled:</span>
+strategies = [
+  <span class="str">"brand-hyphen-keyword"</span>,    <span class="cm"># paypal-verify.xyz</span>
+  <span class="str">"ip-as-host"</span>,              <span class="cm"># 192.168.1.1/login</span>
+  <span class="str">"deep-subdomain-spoof"</span>,    <span class="cm"># paypal.abc.evil.tk</span>
+  <span class="str">"at-redirect-trick"</span>,       <span class="cm"># paypal.com@evil.cc</span>
+  <span class="str">"homograph-lookalike"</span>,     <span class="cm"># paypа1.com</span>
+  <span class="str">"keyword-stuffed-url"</span>,     <span class="cm"># verify-secure-login.xyz</span>
+  <span class="str">"non-standard-port"</span>,       <span class="cm"># evil.com:4444</span>
+  <span class="str">"encoded-obfuscation"</span>,     <span class="cm"># evil.com/%72%65%64</span>
+  <span class="str">"legit-subdomain-spoof"</span>,   <span class="cm"># paypal.com.evil.tk</span>
+  <span class="str">"brand-numbers-cheaptld"</span>, <span class="cm"># paypal9934.xyz</span>
+  <span class="str">"crypto-drainer"</span>,         <span class="cm"># defi-wallet.tk/claim</span>
+  <span class="str">"delivery-tracking-scam"</span>, <span class="cm"># fedex-update.xyz/track</span>
+]</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <h3>Whitelist Layer — Instant Safe for Trusted Domains</h3>
+          <p>Before any ML runs, the domain root is checked against a hardcoded whitelist of 500+ globally trusted sites (Alexa Top 500, Cisco Umbrella). If matched, the URL is instantly marked SAFE — this eliminates false positives for legitimate sites with long UTM tracking parameters like Udemy, Netflix, or Amazon.</p>
+          <div class="code-block">
+<span class="kw">def</span> <span class="fn">is_trusted</span>(hostname: str) → bool:
+    <span class="cm"># Extract root domain: "www.udemy.com" → "udemy.com"</span>
+    root = _get_domain_root(hostname)
+    <span class="kw">return</span> root <span class="kw">in</span> TRUSTED_DOMAINS
+
+<span class="cm"># Example: Udemy with long UTM params</span>
+url = <span class="str">"https://udemy.com/?utm_campaign=Brand&utm_source=..."</span>
+<span class="cm"># → is_trusted("udemy.com") = True → INSTANT SAFE ✓</span>
+<span class="cm"># → ML model never even runs</span>
+
+TRUSTED_DOMAINS = {
+    <span class="str">"udemy.com"</span>, <span class="str">"google.com"</span>, <span class="str">"paypal.com"</span>,
+    <span class="str">"github.com"</span>, <span class="str">"amazon.com"</span>, <span class="str">"netflix.com"</span>,
+    <span class="cm"># ... 500+ more domains</span>
+}</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <h3>Feature Extraction — 25 Numerical Signals</h3>
+          <p>The URL is parsed and converted into 25 numbers that the ML model can understand. These cover structural patterns (length, dots, hyphens), semantic signals (suspicious keywords, brand names), entropy/randomness (DGA detection), and domain-level analysis. Every number captures a different "smell" of phishing.</p>
+          <div class="code-block">
+<span class="kw">from</span> urllib.parse <span class="kw">import</span> urlparse
+<span class="kw">import</span> re, math
+<span class="kw">from</span> collections <span class="kw">import</span> Counter
+
+<span class="kw">def</span> <span class="fn">extract_features</span>(url: str) → list:
+    parsed   = urlparse(url)
+    hostname = parsed.hostname.lower()
+    path     = parsed.path.lower()
+
+    <span class="cm"># Structural features</span>
+    url_length   = len(url)            <span class="cm"># longer = more suspicious</span>
+    dot_count    = url.count(<span class="str">"."</span>)     <span class="cm"># subdomain depth</span>
+    is_https     = scheme == <span class="str">"https"</span>  <span class="cm"># HTTPS ≠ safe!</span>
+
+    <span class="cm"># NEW: DGA / entropy features (v5+)</span>
+    domain_entropy      = _entropy(domain_body)
+    is_random_domain    = _is_gibberish(domain_body)
+    subdomain_is_gibberish = _is_gibberish(longest_subdomain)
+    longest_label_len   = max(len(l) <span class="kw">for</span> l <span class="kw">in</span> hostname.split(<span class="str">"."</span>))
+    both_gibberish      = subdomain_gibberish <span class="kw">and</span> domain_gibberish
+
+    <span class="kw">return</span> [url_length, dot_count, has_at, has_hyphen,
+            subdomain_count, is_https, path_length, ...
+            domain_entropy, is_random_domain,
+            subdomain_is_gibberish, longest_label_len, both_gibberish]</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <h3>Random Forest — 300 Trees Vote on the Verdict</h3>
+          <p>A Random Forest is an ensemble of 300 independent Decision Trees, each trained on a random subset of data and features. Every tree casts a vote (PHISH or SAFE), and the majority wins. This makes the model extremely robust — even if some trees are tricked, the majority overcomes it. The confidence score is simply the percentage of trees that voted PHISHING.</p>
+          <div class="code-block">
+<span class="kw">from</span> sklearn.ensemble <span class="kw">import</span> RandomForestClassifier
+
+clf = <span class="fn">RandomForestClassifier</span>(
+    n_estimators  = <span class="num">300</span>,   <span class="cm"># 300 decision trees</span>
+    max_depth     = <span class="num">28</span>,    <span class="cm"># each tree can go 28 levels deep</span>
+    class_weight  = <span class="str">"balanced"</span>,  <span class="cm"># handles imbalanced data</span>
+    n_jobs        = <span class="num">-1</span>,    <span class="cm"># use all CPU cores</span>
+    random_state  = <span class="num">42</span>
+)
+clf.<span class="fn">fit</span>(X_train, y_train)
+
+<span class="cm"># Prediction = majority vote of 300 trees</span>
+pred = clf.<span class="fn">predict</span>([features])         <span class="cm"># 0=safe, 1=phish</span>
+conf = clf.<span class="fn">predict_proba</span>([features])[<span class="num">0</span>][<span class="num">1</span>]  <span class="cm"># % trees voted phish</span>
+
+<span class="cm"># e.g. ourlzllc.com → 300/300 trees voted PHISH → 100% confidence</span></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-content">
+          <h3>Flask API + Chrome Extension — Real-Time Detection</h3>
+          <p>The trained model is saved as a .pkl file and served via a Flask REST API running locally at port 5000. The Chrome extension's background service worker intercepts every page navigation, sends the URL to the API, and receives a verdict within milliseconds. The background worker is used (not content scripts) to bypass mixed-content HTTPS restrictions.</p>
+          <div class="code-block">
+<span class="cm"># server.py — Flask API</span>
+<span class="kw">@app</span>.route(<span class="str">"/predict"</span>, methods=[<span class="str">"POST"</span>])
+<span class="kw">def</span> <span class="fn">predict</span>():
+    url      = request.json[<span class="str">"url"</span>]
+    features = <span class="fn">extract_features</span>(url)    <span class="cm"># 25 numbers</span>
+    pred     = clf.<span class="fn">predict</span>([features])[<span class="num">0</span>]
+    conf     = clf.<span class="fn">predict_proba</span>([features])[<span class="num">0</span>][<span class="num">1</span>]
+    <span class="kw">return</span> {<span class="str">"prediction"</span>: <span class="str">"phishing"</span> <span class="kw">if</span> pred <span class="kw">else</span> <span class="str">"safe"</span>,
+             <span class="str">"confidence"</span>: <span class="fn">round</span>(conf * <span class="num">100</span>, <span class="num">1</span>)}
+
+<span class="cm"># background.js — Chrome Extension (MV3)</span>
+<span class="cm">// Routes around mixed-content restriction</span>
+chrome.runtime.onMessage.addListener((msg, _, reply) => {
+  <span class="kw">if</span> (msg.type === <span class="str">"CHECK_URL"</span>) {
+    fetch(<span class="str">"http://127.0.0.1:5000/predict"</span>, {
+      method: <span class="str">"POST"</span>, body: JSON.stringify({url: msg.url})
+    }).<span class="fn">then</span>(r => r.json()).<span class="fn">then</span>(reply)
+  }
+})</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════ FEATURES ══════════ -->
+<section>
+  <div class="section-inner">
+    <div class="section-tag">// ALL 25 FEATURES</div>
+    <h2 class="section-title">What the Model Looks At</h2>
+    <p class="section-desc">Each URL is converted into 25 numbers. The importance bar shows how much each feature contributes to the final decision.</p>
+
+    <div class="features-grid">
+      <!-- 12 original -->
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 01</div>
+        <div class="feat-name">url_length</div>
+        <div class="feat-desc">Total character count of the URL. Phishing URLs average 98 chars vs 39 for legit.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:8%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 02</div>
+        <div class="feat-name">dot_count</div>
+        <div class="feat-desc">Number of dots. More dots = deeper subdomain nesting (e.g. paypal.com.evil.tk).</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:7%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 03</div>
+        <div class="feat-name">has_at_symbol</div>
+        <div class="feat-desc">@ in URL = redirect trick. paypal.com@evil.cc sends you to evil.cc not paypal.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:2%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 04</div>
+        <div class="feat-name">has_hyphen</div>
+        <div class="feat-desc">Hyphens in domain. paypal-secure.xyz uses hyphens to look legitimate.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:6%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 05</div>
+        <div class="feat-name">subdomain_count</div>
+        <div class="feat-desc">Number of subdomain levels above the root domain.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:5%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 06</div>
+        <div class="feat-name">is_https</div>
+        <div class="feat-desc">HTTPS does NOT mean safe — phishers get free SSL certs. Combined with other features to determine safety.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:12%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 07</div>
+        <div class="feat-name">path_length</div>
+        <div class="feat-desc">Length of the URL path. Phishing pages often have deep paths like /secure/verify/account.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:4%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 08</div>
+        <div class="feat-name">query_length</div>
+        <div class="feat-desc">Length of query parameters. Phishing: long tokens. Legit UTM params handled by whitelist.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:3%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 09</div>
+        <div class="feat-name">has_ip_address</div>
+        <div class="feat-desc">IP as hostname (e.g. http://192.168.1.1/login.php). No legit site uses raw IPs.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:3%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 10</div>
+        <div class="feat-name">special_char_count</div>
+        <div class="feat-desc">Count of %, =, &, #, ! in the URL. High count = encoded/obfuscated phishing URL.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:2%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 11</div>
+        <div class="feat-name">double_slash_count</div>
+        <div class="feat-desc">Extra // in path used to confuse URL parsers or redirect to attacker domain.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:1%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 12</div>
+        <div class="feat-name">digit_count</div>
+        <div class="feat-desc">Total digits in URL. Phishing URLs average 12 digits vs 1 for legit sites.</div>
+        <span class="feat-badge core">CORE</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:7%"></div></div></div>
+      </div>
+      <!-- 8 semantic -->
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 13</div>
+        <div class="feat-name">suspicious_kw_in_domain</div>
+        <div class="feat-desc">Detects "crypto", "wallet", "defi", "verify", "recover" etc. inside the domain itself — not just path.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:5%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 14</div>
+        <div class="feat-name">brand_in_domain</div>
+        <div class="feat-desc">Brand name (paypal, amazon, coinbase) in a non-whitelisted domain. Classic spoof pattern.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:1%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 15</div>
+        <div class="feat-name">free_tld</div>
+        <div class="feat-desc">Uses a free/abused TLD: .tk, .ml, .ga, .xyz, .top, .click etc. 80%+ of PhishTank URLs use these.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:9%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 16</div>
+        <div class="feat-name">domain_length</div>
+        <div class="feat-desc">Total length of hostname. servcaccntwebapp...dtuiertgdfhfgdj.com = 48 chars. Way above normal.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:4%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 17</div>
+        <div class="feat-name">domain_digit_ratio</div>
+        <div class="feat-desc">Fraction of digits in the domain. High ratio = auto-generated domain like abc4x5k.com.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:10%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 18</div>
+        <div class="feat-name">suspicious_kw_in_path</div>
+        <div class="feat-desc">Full phrases like "wallet/connect", "airdrop/claim", "account/suspended" in path — strict matching to avoid false positives.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:3%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 19</div>
+        <div class="feat-name">hyphen_count_domain</div>
+        <div class="feat-desc">Total hyphens in full hostname. paypal-secure-verify-now.xyz has 3 hyphens = strong phishing signal.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:6%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 20</div>
+        <div class="feat-name">brand_in_subdomain</div>
+        <div class="feat-desc">Brand name in subdomain used to fool users: paypal.com.attacker.tk — paypal is only the subdomain.</div>
+        <span class="feat-badge new">NEW v2</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:1%"></div></div></div>
+      </div>
+      <!-- 5 entropy/DGA -->
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 21</div>
+        <div class="feat-name">domain_entropy</div>
+        <div class="feat-desc">Shannon entropy of domain name. "google" = 2.58 (low). "dtuiertgdfhfgdj" = 3.19 (high = random).</div>
+        <span class="feat-badge new">NEW v4</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:14%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 22</div>
+        <div class="feat-name">is_random_domain</div>
+        <div class="feat-desc">Binary flag: domain is gibberish (>70% consonants + high entropy). Catches ourlzllc.com, phishzqr.xyz.</div>
+        <span class="feat-badge new">NEW v4</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:6%"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 23</div>
+        <div class="feat-name">subdomain_is_gibberish</div>
+        <div class="feat-desc">Checks if the subdomain label itself is random. "servcaccntwebappaoiuhyswerdg" is pure DGA output.</div>
+        <span class="feat-badge new">NEW v5</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:4%"></div></div></div>
+      </div>
+      <div class="feat-card" style="border: 1px solid rgba(0,229,255,0.25);">
+        <div class="feat-num">FEATURE 24 ⭐ #1 MOST IMPORTANT</div>
+        <div class="feat-name">longest_label_len</div>
+        <div class="feat-desc">Length of the longest DNS label. Real sites use "www","mail","api" (3-6 chars). DGA uses 28-char gibberish labels.</div>
+        <span class="feat-badge new">NEW v5</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:25%; background: var(--accent);"></div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-num">FEATURE 25</div>
+        <div class="feat-name">both_gibberish</div>
+        <div class="feat-desc">Both subdomain AND domain label are gibberish. The ultimate DGA signal — near-100% phishing confidence.</div>
+        <span class="feat-badge new">NEW v5</span>
+        <div class="feat-bar-wrap"><div class="feat-bar-bg"><div class="feat-bar" style="width:3%"></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════ INTERACTIVE DEMO ══════════ -->
+<section>
+  <div class="section-inner">
+    <div class="section-tag">// INTERACTIVE DEMO</div>
+    <h2 class="section-title">Try the Feature Extractor</h2>
+    <p class="section-desc">Select a URL or type your own. See exactly which features fire and why the model decides SAFE or PHISHING.</p>
+
+    <div class="demo-box">
+      <div class="demo-title">// SELECT A TEST URL</div>
+
+      <div class="url-examples">
+        <button class="url-btn phish" onclick="setURL('https://deficryptowallets.com/')">deficryptowallets.com ☠️</button>
+        <button class="url-btn phish" onclick="setURL('https://paypal-secure.verify-account.xyz/login.php')">paypal-secure.verify.xyz ☠️</button>
+        <button class="url-btn phish" onclick="setURL('http://192.168.1.1/login.php')">192.168.1.1/login ☠️</button>
+        <button class="url-btn phish" onclick="setURL('https://ourlzllc.com/trading')">ourlzllc.com ☠️</button>
+        <button class="url-btn phish" onclick="setURL('https://servcaccntwebappaoiuhyswerdg.dtuiertgdfhfgdj.com/?yyy')">DGA double-gibberish ☠️</button>
+        <button class="url-btn phish" onclick="setURL('https://metamask-airdrop.xyz/claim')">metamask-airdrop.xyz ☠️</button>
+        <button class="url-btn safe" onclick="setURL('https://www.udemy.com/?utm_source=adwords-brand&utm_campaign=India')">udemy.com UTM ✓</button>
+        <button class="url-btn safe" onclick="setURL('https://coinbase.com/dashboard')">coinbase.com ✓</button>
+        <button class="url-btn safe" onclick="setURL('https://github.com/login')">github.com ✓</button>
+        <button class="url-btn safe" onclick="setURL('https://google.com/search?q=machine+learning')">google.com ✓</button>
+      </div>
+
+      <div class="url-input-row">
+        <input class="url-input" id="urlInput" type="text" placeholder="https://example.com/path?query=value" value="https://deficryptowallets.com/">
+        <button class="analyze-btn" onclick="analyze()">ANALYZE →</button>
+      </div>
+
+      <div class="feature-bars" id="featureBars">
+        <div class="demo-title" style="margin-bottom:1rem">// FEATURE VALUES</div>
+        <div id="barsContainer"></div>
+        <div id="verdict" class="verdict"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════ DECISION TREE ══════════ -->
+<section>
+  <div class="section-inner">
+    <div class="section-tag">// HOW A DECISION TREE WORKS</div>
+    <h2 class="section-title">One Tree — Simplified</h2>
+    <p class="section-desc">Each of the 300 trees asks a series of yes/no questions about the features. The final answer is where the path ends up.</p>
+
+    <div class="tree-container">
+      <div class="tree">
+        <div class="tree-node root">longest_label_len > 15?</div>
+        <div class="tree-row">
+          <div class="tree-branch">
+            <div class="tree-label">YES →</div>
+            <div class="tree-edge"></div>
+            <div class="tree-node root">domain_entropy > 3.0?</div>
+            <div class="tree-row">
+              <div class="tree-branch">
+                <div class="tree-label">YES →</div>
+                <div class="tree-edge"></div>
+                <div class="tree-node leaf-p">🚨 PHISHING<br><small>DGA domain</small></div>
+              </div>
+              <div class="tree-branch">
+                <div class="tree-label">NO →</div>
+                <div class="tree-edge"></div>
+                <div class="tree-node root">is_https?</div>
+                <div class="tree-row">
+                  <div class="tree-branch">
+                    <div class="tree-label">NO →</div>
+                    <div class="tree-edge"></div>
+                    <div class="tree-node leaf-p">🚨 PHISHING</div>
+                  </div>
+                  <div class="tree-branch">
+                    <div class="tree-label">YES →</div>
+                    <div class="tree-edge"></div>
+                    <div class="tree-node leaf-s">✅ SAFE</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tree-branch">
+            <div class="tree-label">NO →</div>
+            <div class="tree-edge"></div>
+            <div class="tree-node root">free_tld = 1?</div>
+            <div class="tree-row">
+              <div class="tree-branch">
+                <div class="tree-label">YES →</div>
+                <div class="tree-edge"></div>
+                <div class="tree-node root">has_hyphen?</div>
+                <div class="tree-row">
+                  <div class="tree-branch">
+                    <div class="tree-label">YES →</div>
+                    <div class="tree-edge"></div>
+                    <div class="tree-node leaf-p">🚨 PHISHING</div>
+                  </div>
+                  <div class="tree-branch">
+                    <div class="tree-label">NO →</div>
+                    <div class="tree-edge"></div>
+                    <div class="tree-node leaf-p">🚨 PHISHING</div>
+                  </div>
+                </div>
+              </div>
+              <div class="tree-branch">
+                <div class="tree-label">NO →</div>
+                <div class="tree-edge"></div>
+                <div class="tree-node leaf-s">✅ SAFE</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem;">
+      The real trees are much deeper (up to 28 levels). This is a simplified illustration of the logic. All 300 trees run in parallel, then vote.
+    </p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════ MODEL STATS ══════════ -->
+<section>
+  <div class="section-inner">
+    <div class="section-tag">// MODEL PERFORMANCE</div>
+    <h2 class="section-title">Evaluation Results</h2>
+    <p class="section-desc">Tested on 41,710 URLs the model had never seen during training.</p>
+
+    <div class="model-grid">
+      <div class="model-cell">
+        <h4>ACCURACY</h4>
+        <div class="val">99.926%</div>
+        <div class="sub-val">41,710 test samples</div>
+      </div>
+      <div class="model-cell">
+        <h4>ROC-AUC SCORE</h4>
+        <div class="val">1.0000</div>
+        <div class="sub-val">Perfect discrimination</div>
+      </div>
+      <div class="model-cell">
+        <h4>FALSE POSITIVES</h4>
+        <div class="val" style="color:var(--accent3)">15</div>
+        <div class="sub-val">Legit flagged as phishing</div>
+      </div>
+      <div class="model-cell">
+        <h4>FALSE NEGATIVES</h4>
+        <div class="val" style="color:var(--accent2)">15</div>
+        <div class="sub-val">Phishing missed as safe</div>
+      </div>
+      <div class="model-cell">
+        <h4>TREES IN FOREST</h4>
+        <div class="val">300</div>
+        <div class="sub-val">Each votes independently</div>
+      </div>
+      <div class="model-cell">
+        <h4>MAX TREE DEPTH</h4>
+        <div class="val">28</div>
+        <div class="sub-val">Levels of if/else logic</div>
+      </div>
+      <div class="model-cell">
+        <h4>TRAINING TIME</h4>
+        <div class="val">29s</div>
+        <div class="sub-val">On consumer hardware</div>
+      </div>
+      <div class="model-cell">
+        <h4>INFERENCE TIME</h4>
+        <div class="val">&lt;5ms</div>
+        <div class="sub-val">Per URL on Flask API</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════ BUG FIXES TIMELINE ══════════ -->
+<section>
+  <div class="section-inner">
+    <div class="section-tag">// ITERATION HISTORY</div>
+    <h2 class="section-title">How the Model Evolved</h2>
+    <p class="section-desc">Every real-world bug report made the model smarter. Here's the complete improvement history.</p>
+
+    <div class="timeline">
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-version">// MODEL v1 — 12 FEATURES</div>
+        <div class="tl-title">Initial Release</div>
+        <div class="tl-desc">Basic structural features: url_length, dot_count, is_https, has_hyphen, etc. Trained on 12,000 URLs. Caught classic phishing patterns but missed modern attacks.</div>
+        <span class="tl-tag fix">12 features</span>
+        <span class="tl-tag fix">12k training URLs</span>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-version">// MODEL v2 — 20 FEATURES</div>
+        <div class="tl-title">Bug: deficryptowallets.com missed</div>
+        <div class="tl-desc">ESET caught it, PhishGuard didn't. The URL used HTTPS and had no hyphens — all structural features were clean. Added semantic features: suspicious keywords in domain, brand detection, free TLD check. Also rebuilt dataset to 208,000 URLs.</div>
+        <span class="tl-tag miss">MISSED: crypto drainer domains</span>
+        <span class="tl-tag fix">FIX: suspicious_kw_in_domain, free_tld, brand_in_domain</span>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-version">// MODEL v3 — WHITELIST ADDED</div>
+        <div class="tl-title">Bug: Udemy.com false positive</div>
+        <div class="tl-desc">Long UTM tracking URLs (utm_campaign=Brand-Udemy...) triggered high query_length and special_char_count. Fixed by adding a trusted domain whitelist — 500+ sites bypass ML entirely. Also tightened suspicious_kw_in_path to use full phrases not single words.</div>
+        <span class="tl-tag miss">MISSED: legit UTM params = false positive</span>
+        <span class="tl-tag fix">FIX: 500-domain whitelist, strict path phrases</span>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-version">// MODEL v5 — 22 FEATURES</div>
+        <div class="tl-title">Bug: ourlzllc.com (HTTPS) missed</div>
+        <div class="tl-desc">Fake crypto exchange using HTTPS with a gibberish domain. is_https=1 was overriding the randomness signal. Added domain entropy (Shannon information theory) and is_random_domain flag. Generated 8,000 HTTPS random-domain phishing examples to break the "HTTPS = safe" bias.</div>
+        <span class="tl-tag miss">MISSED: HTTPS + gibberish domain = safe (wrong)</span>
+        <span class="tl-tag fix">FIX: domain_entropy, is_random_domain, 8k HTTPS phishing examples</span>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-version">// MODEL v6 — 25 FEATURES (CURRENT)</div>
+        <div class="tl-title">Bug: DGA double-gibberish domain missed</div>
+        <div class="tl-desc">servcaccntwebappaoiuhyswerdg.dtuiertgdfhfgdj.com — both subdomain (28 chars) AND domain were random gibberish. Added 3 final features: subdomain_is_gibberish, longest_label_len (now the #1 most important feature at 25%), and both_gibberish flag. Generated 10,000 DGA-style training examples.</div>
+        <span class="tl-tag miss">MISSED: DGA subdomain + domain = safe (wrong)</span>
+        <span class="tl-tag fix">FIX: longest_label_len (#1 feature!), subdomain_is_gibberish, both_gibberish</span>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<footer>
+  <p>PhishGuard ML System — Random Forest · 300 Trees · 25 Features · 208,549 Training URLs · 99.926% Accuracy</p>
+  <p style="margin-top:0.5rem; color:#2a3a4a">Built with Python · scikit-learn · Flask · Chrome Extension MV3</p>
+</footer>
+
+<script>
+  // ── Feature extractor (JS mirror of Python) ──────────────────────
+  const TRUSTED = new Set([
+    "udemy.com","google.com","youtube.com","gmail.com","microsoft.com",
+    "apple.com","amazon.com","facebook.com","instagram.com","whatsapp.com",
+    "twitter.com","x.com","linkedin.com","github.com","gitlab.com",
+    "stackoverflow.com","netflix.com","spotify.com","paypal.com",
+    "coinbase.com","binance.com","reddit.com","discord.com","telegram.org",
+    "wikipedia.org","notion.so","figma.com","canva.com","adobe.com",
+    "dropbox.com","slack.com","zoom.us","shopify.com","stripe.com",
+    "airbnb.com","uber.com","amazon.co.uk","amazon.in","flipkart.com",
+    "bit.ly","t.co","tinyurl.com","goo.gl",
+  ]);
+
+  const SUSP_KW = ["crypto","wallet","defi","nft","token","eth","btc","sol","bnb",
+    "web3","airdrop","blockchain","metamask","ledger","verify","login-secure",
+    "secure-login","account-verify","recover","unlock","suspended","tracking"];
+
+  const BRANDS = ["paypal","amazon","google","microsoft","apple","facebook","netflix",
+    "coinbase","binance","metamask","fedex","ups","usps","dhl","steam","discord"];
+
+  const FREE_TLDS = [".tk",".ml",".ga",".cf",".gq",".xyz",".top",".club",
+    ".online",".site",".space",".fun",".pw",".win",".click"];
+
+  function getDomainRoot(h) {
+    const p = h.split(".");
+    if (p.length >= 3 && ["co","com","org","net","gov"].includes(p[p.length-2]))
+      return p.slice(-3).join(".");
+    return p.slice(-2).join(".");
+  }
+
+  function isTrusted(h) { return TRUSTED.has(getDomainRoot(h)); }
+
+  function entropy(s) {
+    if (!s) return 0;
+    const freq = {};
+    for (const c of s) freq[c] = (freq[c]||0)+1;
+    const n = s.length;
+    return -Object.values(freq).reduce((a,v)=>a+(v/n)*Math.log2(v/n),0);
+  }
+
+  function consonantRatio(s) {
+    if (!s) return 0;
+    const cons = (s.match(/[bcdfghjklmnpqrstvwxyz]/g)||[]).length;
+    return cons/s.length;
+  }
+
+  function isGibberish(s) {
+    if (!s||s.length<4) return 0;
+    const cr = consonantRatio(s), en = entropy(s);
+    if (cr>0.68&&en>2.8) return 1;
+    if (cr>0.75&&en>2.0) return 1;
+    if (s.length>12&&en>3.5) return 1;
+    return 0;
+  }
+
+  function extractFeatures(url) {
+    let parsed; try { parsed = new URL(url); } catch(e) { return null; }
+    const hostname = parsed.hostname.toLowerCase();
+    const path     = parsed.pathname.toLowerCase();
+    const query    = parsed.search.toLowerCase();
+
+    if (isTrusted(hostname)) {
+      return {
+        trusted: true,
+        url_length: url.length, dot_count: url.split(".").length-1,
+        has_at_symbol:0, has_hyphen:0, subdomain_count:0,
+        is_https: parsed.protocol==="https:"?1:0,
+        path_length:path.length, query_length:0,
+        has_ip_address:0, special_char_count:0, double_slash_count:0,
+        digit_count:0, suspicious_kw_in_domain:0, brand_in_domain:0,
+        free_tld:0, domain_length:hostname.length, domain_digit_ratio:0,
+        suspicious_kw_in_path:0, hyphen_count_domain:0, brand_in_subdomain:0,
+        domain_entropy:0, is_random_domain:0,
+        subdomain_is_gibberish:0, longest_label_len:3, both_gibberish:0,
+      };
+    }
+
+    const parts = hostname.split(".");
+    let domBody = hostname.replace(/\.(com|net|org|io|co|xyz|tk|ml|top|online|site|info|biz|us|uk|in|ru|cn|br|au|de|fr|jp|club|space|fun|pw|win|click|live|shop|store|cc|ws|mobi|tv|me|ly|gl|gg|app|dev|ai)(\.[a-z]{2,3})?$/,"");
+    domBody = domBody.replace(/^www\d*\./,"");
+
+    const subLabels = parts.length>2 ? parts.slice(0,-2) : [];
+    const longestSub = subLabels.reduce((a,b)=>b.length>a.length?b:a,"");
+    const domainLabel = parts.length>=2 ? parts[parts.length-2] : "";
+    const allLabels = hostname.split(".");
+    const longestLabelLen = Math.max(...allLabels.map(l=>l.length));
+
+    const freeTld = FREE_TLDS.some(t=>hostname.endsWith(t))?1:0;
+    const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)?1:0;
+    const specialCount = [...url].filter(c=>"%=&#!".includes(c)).length;
+    const afterScheme = url.includes("://")?url.split("://")[1]:url;
+    const digitCount = [...url].filter(c=>/\d/.test(c)).length;
+    const domDigitRatio = hostname.length ? [...hostname].filter(c=>/\d/.test(c)).length/hostname.length : 0;
+    const suspKwDomain = SUSP_KW.some(k=>domBody.includes(k))?1:0;
+    const brandDomain = BRANDS.some(b=>domBody.includes(b))?1:0;
+    const fullPQ = path+"?"+query;
+    const suspPath = ["wallet/connect","wallet/verify","airdrop/claim","nft/claim",
+      "account/suspended","password/reset","billing/update","kyc/verify"].some(k=>fullPQ.includes(k))?1:0;
+    const brandSub = subLabels.length ? (BRANDS.some(b=>subLabels.join(".").includes(b))?1:0) : 0;
+    const domEntropy = parseFloat(entropy(domBody).toFixed(4));
+    const isRandom = isGibberish(domBody);
+    const subGibberish = longestSub ? isGibberish(longestSub) : 0;
+    const bothGibberish = (subGibberish && isGibberish(domainLabel)) ? 1 : 0;
+
+    return {
+      trusted: false,
+      url_length: url.length,
+      dot_count: url.split(".").length-1,
+      has_at_symbol: url.includes("@")?1:0,
+      has_hyphen: hostname.includes("-")?1:0,
+      subdomain_count: Math.max(0,parts.length-2),
+      is_https: parsed.protocol==="https:"?1:0,
+      path_length: path.length,
+      query_length: query.length,
+      has_ip_address: isIp,
+      special_char_count: specialCount,
+      double_slash_count: afterScheme.split("//").length-1,
+      digit_count: digitCount,
+      suspicious_kw_in_domain: suspKwDomain,
+      brand_in_domain: brandDomain,
+      free_tld: freeTld,
+      domain_length: hostname.length,
+      domain_digit_ratio: parseFloat(domDigitRatio.toFixed(4)),
+      suspicious_kw_in_path: suspPath,
+      hyphen_count_domain: hostname.split("-").length-1,
+      brand_in_subdomain: brandSub,
+      domain_entropy: domEntropy,
+      is_random_domain: isRandom,
+      subdomain_is_gibberish: subGibberish,
+      longest_label_len: longestLabelLen,
+      both_gibberish: bothGibberish,
+    };
+  }
+
+  // Simple rule-based scoring (mirrors the RF logic)
+  function scoreFeatures(f) {
+    if (f.trusted) return { verdict:"safe", conf:0.0, reason:"Domain is in trusted whitelist" };
+
+    let score = 0;
+    if (f.both_gibberish)              score += 95;
+    if (f.longest_label_len > 20)      score += 60;
+    if (f.longest_label_len > 12)      score += 30;
+    if (f.is_random_domain)            score += 40;
+    if (f.subdomain_is_gibberish)      score += 35;
+    if (f.domain_entropy > 3.5)        score += 30;
+    if (f.domain_entropy > 2.8)        score += 15;
+    if (f.free_tld)                    score += 40;
+    if (f.suspicious_kw_in_domain)     score += 35;
+    if (f.brand_in_domain)             score += 25;
+    if (f.has_at_symbol)               score += 50;
+    if (f.has_ip_address)              score += 80;
+    if (!f.is_https)                   score += 20;
+    if (f.hyphen_count_domain > 1)     score += 20;
+    if (f.hyphen_count_domain === 1)   score += 10;
+    if (f.suspicious_kw_in_path)       score += 25;
+    if (f.brand_in_subdomain)          score += 30;
+    if (f.domain_digit_ratio > 0.3)    score += 20;
+    if (f.url_length > 100)            score += 10;
+    if (f.digit_count > 15)            score += 10;
+
+    const conf = Math.min(score / 150, 1.0);
+    const verdict = conf > 0.35 ? "phish" : "safe";
+
+    const reasons = [];
+    if (f.has_ip_address)           reasons.push("IP address as hostname");
+    if (f.both_gibberish)           reasons.push("Both subdomain and domain are DGA gibberish");
+    if (f.longest_label_len > 12)   reasons.push(`Abnormally long DNS label (${f.longest_label_len} chars)`);
+    if (f.domain_entropy > 3.0)     reasons.push(`High domain entropy (${f.domain_entropy.toFixed(2)} — looks random)`);
+    if (f.free_tld)                 reasons.push("Uses abused free TLD (.xyz, .tk, .top etc.)");
+    if (f.suspicious_kw_in_domain)  reasons.push("Suspicious keyword in domain (crypto/wallet/verify/etc.)");
+    if (f.has_at_symbol)            reasons.push("@ redirect trick in URL");
+    if (f.brand_in_domain)          reasons.push("Brand name in non-official domain");
+    if (f.brand_in_subdomain)       reasons.push("Brand name only in subdomain (spoof pattern)");
+    if (f.suspicious_kw_in_path)    reasons.push("Phishing phrase in path (wallet/connect, airdrop/claim etc.)");
+    if (!f.is_https)                reasons.push("Uses HTTP not HTTPS");
+
+    return { verdict, conf: parseFloat(conf.toFixed(3)), reasons };
+  }
+
+  const FEATS = [
+    ["url_length","URL Length","chars"],
+    ["dot_count","Dot Count","dots"],
+    ["has_at_symbol","Has @ Symbol","bool"],
+    ["has_hyphen","Has Hyphen","bool"],
+    ["subdomain_count","Subdomain Count","levels"],
+    ["is_https","Is HTTPS","bool"],
+    ["path_length","Path Length","chars"],
+    ["query_length","Query Length","chars"],
+    ["has_ip_address","IP as Host","bool"],
+    ["special_char_count","Special Chars","count"],
+    ["double_slash_count","Double Slashes","count"],
+    ["digit_count","Digit Count","count"],
+    ["suspicious_kw_in_domain","Suspicious KW in Domain","bool"],
+    ["brand_in_domain","Brand in Domain","bool"],
+    ["free_tld","Free/Abused TLD","bool"],
+    ["domain_length","Domain Length","chars"],
+    ["domain_digit_ratio","Domain Digit Ratio","0-1"],
+    ["suspicious_kw_in_path","Suspicious KW in Path","bool"],
+    ["hyphen_count_domain","Hyphen Count","count"],
+    ["brand_in_subdomain","Brand in Subdomain","bool"],
+    ["domain_entropy","Domain Entropy","bits"],
+    ["is_random_domain","Random Domain","bool"],
+    ["subdomain_is_gibberish","Subdomain Gibberish","bool"],
+    ["longest_label_len","Longest Label ⭐","chars"],
+    ["both_gibberish","Both Gibberish","bool"],
+  ];
+
+  // Normalization maxes for bar widths
+  const MAXES = {
+    url_length:300, dot_count:8, has_at_symbol:1, has_hyphen:1,
+    subdomain_count:5, is_https:1, path_length:100, query_length:150,
+    has_ip_address:1, special_char_count:20, double_slash_count:3,
+    digit_count:50, suspicious_kw_in_domain:1, brand_in_domain:1,
+    free_tld:1, domain_length:60, domain_digit_ratio:1,
+    suspicious_kw_in_path:1, hyphen_count_domain:5, brand_in_subdomain:1,
+    domain_entropy:5, is_random_domain:1, subdomain_is_gibberish:1,
+    longest_label_len:30, both_gibberish:1,
+  };
+
+  const PHISH_FEATURES = new Set([
+    "has_at_symbol","free_tld","suspicious_kw_in_domain","brand_in_domain",
+    "has_ip_address","suspicious_kw_in_path","brand_in_subdomain",
+    "is_random_domain","subdomain_is_gibberish","both_gibberish",
+  ]);
+
+  function setURL(url) { document.getElementById("urlInput").value = url; analyze(); }
+
+  function analyze() {
+    const url = document.getElementById("urlInput").value.trim();
+    if (!url) return;
+    const f = extractFeatures(url);
+    if (!f) { alert("Invalid URL — please include https:// or http://"); return; }
+
+    const result = scoreFeatures(f);
+
+    const container = document.getElementById("barsContainer");
+    container.innerHTML = "";
+
+    FEATS.forEach(([key, label, unit]) => {
+      const val = f[key];
+      const max = MAXES[key] || 1;
+      const pct = Math.min((val / max) * 100, 100);
+      const isPhishSignal = PHISH_FEATURES.has(key) && val > 0;
+      const color = isPhishSignal ? "var(--accent2)" : (val > 0 ? "var(--accent)" : "var(--border)");
+
+      const row = document.createElement("div");
+      row.className = "fb-row";
+      row.innerHTML = `
+        <div class="fb-label">${label}</div>
+        <div class="fb-track">
+          <div class="fb-fill" style="width:0%; background:${color}" data-pct="${pct}"></div>
+        </div>
+        <div class="fb-val">${typeof val === "number" ? (Number.isInteger(val) ? val : val.toFixed(3)) : val}</div>
+      `;
+      container.appendChild(row);
+    });
+
+    // Animate bars
+    requestAnimationFrame(() => {
+      container.querySelectorAll(".fb-fill").forEach(el => {
+        el.style.width = el.dataset.pct + "%";
+      });
+    });
+
+    // Verdict
+    const vEl = document.getElementById("verdict");
+    vEl.className = "verdict " + result.verdict;
+    if (result.verdict === "phish") {
+      const confPct = Math.round(result.conf * 100);
+      vEl.innerHTML = `
+        <div class="verdict-label">// VERDICT — PHISHING DETECTED (${confPct}% confidence)</div>
+        <div class="verdict-text">
+          <strong>Signals fired:</strong><br>
+          ${result.reasons.map(r=>`• ${r}`).join("<br>")||"• Multiple suspicious feature combinations"}
+        </div>`;
+    } else {
+      vEl.innerHTML = `
+        <div class="verdict-label">// VERDICT — SITE LOOKS SAFE</div>
+        <div class="verdict-text">${f.trusted
+          ? "Domain is in the trusted whitelist — ML model skipped entirely."
+          : "No significant phishing indicators detected. Features are within normal range."
+        }</div>`;
+    }
+
+    document.getElementById("featureBars").className = "feature-bars visible";
+  }
+
+  // Animate feature bar widths on scroll
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll(".feat-bar").forEach(b => {
+          b.style.transition = "width 1.2s cubic-bezier(0.16,1,0.3,1)";
+        });
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll(".features-grid").forEach(el => observer.observe(el));
+
+  // Auto-analyze on load
+  window.addEventListener("load", () => analyze());
+</script>
+</body>
+</html>

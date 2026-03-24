@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhishGuard</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@400;600;700&display=swap');
+
+    body {
+      font-family: 'Sora', sans-serif;
+      width: 340px;
+      min-height: 200px;
+      background: #0a0e1a;
+      color: #e2e8f0;
+      overflow: hidden;
+    }
+
+    /* ── Header ───────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 18px 14px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 1px solid #1e40af33;
+    }
+
+    .logo {
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .header-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #60a5fa;
+      letter-spacing: 0.5px;
+    }
+
+    .header-text p {
+      font-size: 10px;
+      color: #475569;
+      font-family: 'Space Mono', monospace;
+      margin-top: 2px;
+    }
+
+    /* ── Status card ──────────────────────────────────── */
+    .status-card {
+      margin: 16px;
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: all 0.3s ease;
+    }
+
+    .status-card.loading {
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+
+    .status-card.safe {
+      background: linear-gradient(135deg, #052e16 0%, #064e3b 100%);
+      border: 1px solid #16a34a55;
+    }
+
+    .status-card.phishing {
+      background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
+      border: 1px solid #dc262644;
+      animation: pulse-border 1.5s infinite;
+    }
+
+    .status-card.unknown {
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { border-color: #dc262644; box-shadow: 0 0 0 0 #dc262620; }
+      50% { border-color: #dc2626aa; box-shadow: 0 0 0 6px #dc262610; }
+    }
+
+    .status-icon {
+      font-size: 28px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .status-info { flex: 1; min-width: 0; }
+
+    .status-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .status-card.safe .status-title { color: #4ade80; }
+    .status-card.phishing .status-title { color: #f87171; }
+    .status-card.loading .status-title,
+    .status-card.unknown .status-title { color: #94a3b8; }
+
+    .status-url {
+      font-size: 10px;
+      font-family: 'Space Mono', monospace;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 210px;
+    }
+
+    .status-desc {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .status-card.phishing .status-desc { color: #fca5a5; }
+    .status-card.safe .status-desc { color: #86efac; }
+
+    /* ── Spinner ──────────────────────────────────────── */
+    .spinner {
+      width: 22px; height: 22px;
+      border: 3px solid #1e40af33;
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Manual check ─────────────────────────────────── */
+    .manual-section {
+      padding: 0 16px 14px;
+    }
+
+    .manual-section label {
+      font-size: 11px;
+      color: #475569;
+      display: block;
+      margin-bottom: 6px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .manual-input {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #e2e8f0;
+      font-family: 'Space Mono', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .manual-input:focus { border-color: #60a5fa; }
+    .manual-input::placeholder { color: #475569; }
+
+    .check-btn {
+      background: #1d4ed8;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-family: 'Sora', sans-serif;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .check-btn:hover { background: #2563eb; }
+    .check-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+    /* ── Footer ───────────────────────────────────────── */
+    .footer {
+      padding: 10px 18px;
+      border-top: 1px solid #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-badge {
+      font-size: 10px;
+      color: #475569;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .footer-badge span { color: #3b82f6; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">🛡️</div>
+    <div class="header-text">
+      <h1>PhishGuard</h1>
+      <p>ML-POWERED PHISHING DETECTOR</p>
+    </div>
+  </div>
+
+  <!-- Dynamic status card -->
+  <div class="status-card loading" id="statusCard">
+    <div class="spinner" id="spinnerEl"></div>
+    <div class="status-info">
+      <div class="status-title" id="statusTitle">Analysing page…</div>
+      <div class="status-url" id="statusURL">—</div>
+      <div class="status-desc" id="statusDesc">Connecting to PhishGuard ML engine</div>
+    </div>
+  </div>
+
+  <!-- Manual URL check -->
+  <div class="manual-section">
+    <label>CHECK ANY URL</label>
+    <div class="input-row">
+      <input
+        type="text"
+        class="manual-input"
+        id="manualInput"
+        placeholder="https://example.com"
+      />
+      <button class="check-btn" id="checkBtn">Scan</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-badge">PhishGuard v<span>1.0</span></div>
+    <div class="footer-badge">Powered by <span>ML</span></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
