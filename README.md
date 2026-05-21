@@ -174,6 +174,3 @@ and add/remove features to match your training set. The feature order must exact
 what was used during model training.
 
 ---
-
-## 📄 License
-MIT — free to use, modify, and distribute.
